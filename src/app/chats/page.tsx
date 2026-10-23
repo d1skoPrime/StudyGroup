@@ -2,7 +2,7 @@
 'use client'
 
 import { fetchUserCreatedAt } from '@/services/api'
-import { SendHorizontal, User } from 'lucide-react'
+import { Menu, SendHorizontal, User } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import { FormEvent, useEffect, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
@@ -25,7 +25,8 @@ export default function Page() {
 	const [input, setInput] = useState('')
 	const { userId, username, token } = useAuthStore()
 	const [showProfile, setShowProfile] = useState(false)
-	const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null) // optional, to view password
+	const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null)
+	const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
 	useEffect(() => {
 		if (!token) {
@@ -33,14 +34,12 @@ export default function Page() {
 			return
 		}
 
-		// Fetch past messages (Adjust /api prefix if your backend doesn't use one)
 		fetch('http://localhost:3001/api/chat/messages')
 			.then(res => {
 				if (!res.ok) throw new Error('Failed to fetch chat history')
 				return res.json()
 			})
 			.then((data: any[]) => {
-				// Map backend Prisma response structure to include username easily
 				const formatted = data.map(msg => ({
 					id: msg.id,
 					userId: msg.userId,
@@ -58,7 +57,6 @@ export default function Page() {
 				.catch(err => console.error('Fetch user profile error:', err))
 		}
 
-		// Initialize Socket.io connection for live updates
 		const socketInstance: Socket = io(SOCKET_URL, {
 			transports: ['polling', 'websocket'],
 			autoConnect: true
@@ -88,7 +86,7 @@ export default function Page() {
 		return () => {
 			socketInstance.disconnect()
 		}
-	}, [token, redirect])
+	}, [token])
 
 	const handleSendMessage = (e?: FormEvent) => {
 		if (e) e.preventDefault()
@@ -104,7 +102,6 @@ export default function Page() {
 		setInput('')
 	}
 
-	// Helper function to format timestamp nicely (e.g., "2:45 PM")
 	const formatTime = (dateString?: string) => {
 		if (!dateString) return ''
 		const date = new Date(dateString)
@@ -113,25 +110,37 @@ export default function Page() {
 
 	return (
 		<div className="flex flex-row h-screen w-screen bg-[#121212] text-white overflow-hidden">
-			{/* Left Sidebar */}
-			<SideBar />
+			{/* Left Sidebar (Collapsible on mobile) */}
+			<SideBar
+				isOpen={isSidebarOpen}
+				onClose={() => setIsSidebarOpen(false)}
+			/>
 
 			{/* Main Chat Area on the right */}
 			<div className="flex-1 flex flex-col h-full bg-[#121212] relative">
 				{/* Chat Header */}
-				<div className="h-16 border-b border-[#27272a] flex items-center px-6 justify-between">
-					<h1 className="font-bold text-lg"># main-lobby</h1>
+				<div className="h-16 border-b border-[#27272a] flex items-center px-4 md:px-6 justify-between">
+					<div className="flex items-center gap-3">
+						{/* Hamburger menu button for mobile screens */}
+						<button
+							onClick={() => setIsSidebarOpen(true)}
+							className="md:hidden text-gray-400 hover:text-white p-2 rounded-lg hover:bg-[#27272a] transition"
+						>
+							<Menu className="w-5 h-5" />
+						</button>
+						<h1 className="font-bold text-base md:text-lg"># main-lobby</h1>
+					</div>
+
 					<User
 						onClick={() => setShowProfile(true)}
-						className="cursor-pointer w-12 p-2 rounded-2xl hover:bg-[#27272a] transition ease-in duration-200"
+						className="cursor-pointer w-10 md:w-12 p-2 rounded-2xl hover:bg-[#27272a] transition ease-in duration-200"
 					/>
 				</div>
 
-				{/* Centered Profile Modal Overlay with Blurred Background */}
+				{/* Profile Modal Overlay */}
 				{showProfile && (
 					<div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
 						<div className="w-full max-w-sm bg-[#18181b] border border-[#27272a] rounded-2xl p-6 shadow-2xl text-white relative animate-in fade-in zoom-in-95 duration-150">
-							{/* Modal Header */}
 							<div className="flex items-center justify-between mb-6 pb-3 border-b border-[#27272a]">
 								<h2 className="font-bold text-lg">User Profile</h2>
 								<button
@@ -142,7 +151,6 @@ export default function Page() {
 								</button>
 							</div>
 
-							{/* Modal Details */}
 							<div className="space-y-4">
 								<div>
 									<label className="text-xs text-gray-400 block mb-1">
@@ -169,7 +177,6 @@ export default function Page() {
 								</div>
 							</div>
 
-							{/* Close Action Button at Bottom */}
 							<div className="mt-6 pt-4 border-t border-[#27272a] flex justify-end">
 								<button
 									onClick={() => setShowProfile(false)}
@@ -181,8 +188,9 @@ export default function Page() {
 						</div>
 					</div>
 				)}
-				{/* Messages Feed (Scrollable) - Placed BEFORE the form */}
-				<div className="flex-1 p-6 overflow-y-auto space-y-4 flex flex-col">
+
+				{/* Messages Feed */}
+				<div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 flex flex-col">
 					{messages.length === 0 ? (
 						<p className="text-[#a1a1aa] text-center my-auto">
 							Messages will appear here...
@@ -194,7 +202,7 @@ export default function Page() {
 							return (
 								<div
 									key={msg.id || index}
-									className={`flex flex-col max-w-xl p-3 rounded-lg border ${
+									className={`flex flex-col max-w-[85%] md:max-w-xl p-3 rounded-lg border ${
 										isMe
 											? 'ml-auto bg-blue-600/20 border-blue-500/40 text-right'
 											: 'mr-auto bg-[#18181b] border-[#27272a] text-left'
@@ -221,23 +229,23 @@ export default function Page() {
 					)}
 				</div>
 
-				{/* Message Input Box at the bottom - Placed AFTER the messages feed */}
+				{/* Message Input Box */}
 				<form
 					onSubmit={handleSendMessage}
-					className="p-4 border-t border-[#27272a] flex flex-row gap-4 items-center"
+					className="p-3 md:p-4 border-t border-[#27272a] flex flex-row gap-2 md:gap-4 items-center"
 				>
 					<input
 						type="text"
 						value={input}
 						onChange={e => setInput(e.target.value)}
 						placeholder="Type a message..."
-						className="w-full bg-[#18181b] border border-[#27272a] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+						className="w-full bg-[#18181b] border border-[#27272a] rounded-lg px-4 py-3 text-sm md:text-base text-white focus:outline-none focus:border-blue-500"
 					/>
 					<button
 						type="submit"
-						className="p-2 rounded-lg hover:bg-[#27272a] transition duration-200"
+						className="p-2 rounded-lg hover:bg-[#27272a] transition duration-200 shrink-0"
 					>
-						<SendHorizontal className="cursor-pointer text-gray-400 hover:text-blue-500" />
+						<SendHorizontal className="cursor-pointer text-gray-400 hover:text-blue-500 w-6 h-6" />
 					</button>
 				</form>
 			</div>
